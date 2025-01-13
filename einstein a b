@@ -1,0 +1,84 @@
+import numpy as np
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+
+Gamma = 2
+K = 100
+
+def rho_of_p(p):
+    if p > 0.0:
+        return (p / K)**(1.0/Gamma) 
+    else:
+        return 0.0
+
+def tov_equations(r, X):
+    m, p, nu, mP = X
+    if p <= 0.0:
+        return [0.0, 0.0, 0.0, 0.0]
+
+    rho = rho_of_p(p)
+
+    # tov equations
+    dm_dr  = 4.0 * np.pi * r**2 * rho
+    denom  = r * (r - 2.0*m) + 1.0e-30  # to avoid division by zero
+    dp_dr  = -(m + 4.0 * np.pi * r**3 * p) * (rho + p) / denom
+    dnu_dr =  2.0*(m + 4.0 * np.pi * r**3 * p) / denom
+
+    sqrt_factor = np.sqrt(max(1.0 - 2.0*m/r, 1.0e-30))
+    dmP_dr = 4.0 * np.pi * r**2 * rho / sqrt_factor
+
+    return [dm_dr, dp_dr, dnu_dr, dmP_dr]
+
+def integrate_TOV(pc, r_max=20.0, nsteps=1000):
+   
+    # initial conditions m(0)=0, p(0)=pc, nu(0)=0, mP(0)=0
+    X0 = [0.0, pc, 0.0, 0.0]
+
+    r_span = (1.0e-6, r_max)
+
+    sol = solve_ivp(fun=tov_equations,t_span=r_span,y0=X0,max_step=r_max/nsteps,rtol=1e-8, atol=1e-8)
+
+    return sol
+
+def get_star_quantities(pc):
+   
+    sol = integrate_TOV(pc, r_max=50.0, nsteps=2000)
+    r_arr = sol.t
+    m_arr, p_arr, nu_arr, mP_arr = sol.y
+
+    idx_surf = np.where(p_arr > 1e-12)[0]
+    if len(idx_surf) == 0:
+        return 0, 0, 0
+
+    idx_surf = idx_surf[-1]
+    R = r_arr[idx_surf]
+    M = m_arr[idx_surf]
+    MP= mP_arr[idx_surf]
+
+    Delta = (MP - M)/M if M != 0 else 0.0
+    return (M, R, Delta)
+
+pc_values = np.logspace(-5, 0, 30)
+M_values  = []
+R_values  = []
+D_values  = []
+
+for pc in pc_values:
+    M, R, Delta = get_star_quantities(pc)
+    M_values.append(M)
+    R_values.append(R)
+    D_values.append(Delta)
+
+M_values = np.array(M_values)
+R_values = np.array(R_values)
+D_values = np.array(D_values)
+
+plt.plot(R_values, M_values, 'o-', label='M vs R')
+plt.xlabel(r'R')
+plt.title(r'Mass-Radius')
+plt.legend()
+
+plt.plot(R_values, D_values, color='red', label=r'Delta-R')
+plt.xlabel(r'R')
+plt.legend()
+plt.show()
