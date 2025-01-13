@@ -1,1 +1,51 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def white_dwarf_data(csv_file):
+
+    # read csv file
+    df = pd.read_csv(csv_file)
+
+    # constants
+    G = 6.67408e-8
+    sun_mass   = 1.98847e33
+    earth_r = 6.371e8
+
+    # logg convertion
+    df['G'] = 10**df['logg']
+
+    # mass convertion
+    df['M'] = df['mass'] * sun_mass
+
+    # radius
+    df['R'] = np.sqrt(G * df['M'] / df['G'])
+
+    # earth radius
+    df['earth_R'] = df['R'] / earth_r
+
+    return df
+
+def filter_low_mass(df, cutoff=0.6):
+
+    df_low = df[df['mass'] < cutoff].copy()
+    return df_low
+
+def main():
+
+    df_all = white_dwarf_data("white_dwarf_data.csv")
+
+    df_low = filter_low_mass(df_all, cutoff=0.6)
+
+    plt.scatter(df_all['earth_R'], df_all['mass'], label='all data')
+    plt.scatter(df_low['earth_R'], df_low['mass'], label='low mass')
+    plt.xlabel('radius')
+    plt.ylabel('mass')
+    plt.title('Mass-Radius of White Dwarfs with cutoff=0.6')
+    plt.legend()
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
 
